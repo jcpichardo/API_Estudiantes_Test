@@ -9,7 +9,7 @@ COPY . ./
 RUN ls -la
 
 # Intentar construir solo el proyecto API
-RUN find . -name "ControlEstudiantesAPI.csproj" -exec dotnet publish {} -c Release -o /app/out \;
+RUN find . -name "API_Estudiantes_Test.csproj" -exec dotnet publish {} -c Release -o /app/out \;
 
 # Si lo anterior falla, intentar buscar la API por nombre
 RUN if [ ! -d /app/out ]; then \
