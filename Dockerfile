@@ -1,38 +1,40 @@
-# Etapa de construcción con diagnóstico detallado
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /app
 
-# Copiar todo el contenido
+# Copiar todos los archivos
 COPY . ./
 
-# Diagnóstico: Listar estructura completa
-RUN find . -type f | grep -E '\.(dll|csproj|cs)$' | sort
+# Crear un paquete NuGet a partir del DLL
+RUN mkdir -p /app/nuget/lib/net8.0/
+RUN find . -name "ControlEscolarCore.dll" -exec cp {} /app/nuget/lib/net8.0/ \;
 
-# Verificar específicamente si existe el DLL de ControlEscolarCore
-RUN find . -name "ControlEscolarCore.dll" -o -name "ControlEscolarCore*.dll" | sort
+# Crear un archivo nuspec
+RUN echo '<?xml version="1.0"?>\
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">\
+  <metadata>\
+    <id>ControlEscolarCore</id>\
+    <version>1.0.0</version>\
+    <authors>LocalDev</authors>\
+    <description>Local package</description>\
+  </metadata>\
+</package>' > /app/nuget/ControlEscolarCore.nuspec
 
-# Verificar el contenido del archivo csproj
-RUN cat API_Estudiantes_Test/API_Estudiantes_Test.csproj
+# Crear el paquete NuGet
+RUN cd /app/nuget && dotnet pack ControlEscolarCore.nuspec -o /app/localpackages
 
-# Copiar manualmente la biblioteca a donde .NET pueda encontrarla
-RUN mkdir -p /root/.nuget/packages/controlescolarcore/1.0.0/lib/net8.0/
-RUN find . -name "ControlEscolarCore.dll" -exec cp {} /root/.nuget/packages/controlescolarcore/1.0.0/lib/net8.0/ \;
+# Configurar la fuente del paquete local
+RUN dotnet nuget add source /app/localpackages -n LocalPackages
 
-# Restaurar paquetes
-RUN dotnet restore
+# Instalar el paquete en el proyecto
+RUN dotnet add API_Estudiantes_Test/API_Estudiantes_Test.csproj package ControlEscolarCore -s /app/localpackages
 
-# Compilar con verbosidad detallada para ver qué está fallando
-RUN dotnet publish API_Estudiantes_Test/API_Estudiantes_Test.csproj -c Release -o /app/out -v d
+# Compilar
+RUN dotnet publish API_Estudiantes_Test/API_Estudiantes_Test.csproj -c Release -o /app/out
 
 # Etapa final
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 COPY --from=build /app/out .
-
-# Asegurarnos de copiar también el DLL de ControlEscolarCore
-COPY --from=build /root/.nuget/packages/controlescolarcore/1.0.0/lib/net8.0/ControlEscolarCore.dll .
-
 EXPOSE 80
 EXPOSE 443
-
 ENTRYPOINT ["dotnet", "API_Estudiantes_Test.dll"]
