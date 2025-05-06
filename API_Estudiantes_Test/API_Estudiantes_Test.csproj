@@ -18,5 +18,5 @@
       <HintPath>..\..\ControlEscolarTestAPI\ControlEscolarCore\bin\Debug\net8.0\ControlEscolarCore.dll</HintPath>
     </Reference>
   </ItemGroup>
-
+ 
 </Project>
