@@ -27,4 +27,4 @@ EXPOSE 443
 RUN find . -name "*.dll" | grep -i api
 
 # Entrypoint dinámico que busca el archivo API.dll
-ENTRYPOINT ["sh", "-c", "dotnet $(find . -name \"*API.dll\" | head -1)"]
+ENTRYPOINT ["sh", "-c", "dotnet $(find . -name \"*Test.dll\" | head -1)"]
