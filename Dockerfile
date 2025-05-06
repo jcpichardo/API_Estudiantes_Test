@@ -2,23 +2,22 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /app
 
-# Copiar toda la solución
+# Copiar el proyecto actual
 COPY . ./
 
-# Mostrar la estructura de directorios para depuración
-RUN find . -type f -name "*.csproj" | sort
+# Crear una carpeta para las referencias externas e identificar la ruta del DLL
+RUN mkdir -p /app/referencias/
+# [IMPORTANTE] Asegúrate de que el archivo .dll esté en tu repositorio
+# o cópialo a esta ubicación antes del build
 
-# Encontrar y compilar primero el proyecto ControlEscolarCore
-RUN find . -name "ControlEscolarCore.csproj" -exec dotnet build {} -c Release \;
+# Mostrar estructura para depuración
+RUN find . -type f -name "*.dll" | sort
 
-# Restaurar todas las dependencias de toda la solución
-RUN dotnet restore
+# Restaurar dependencias explícitamente
+RUN dotnet restore "API_Estudiantes_Test/API_Estudiantes_Test.csproj" --source "https://api.nuget.org/v3/index.json"
 
-# Buscar y compilar la solución completa si existe
-RUN find . -name "*.sln" -exec dotnet build {} -c Release \;
-
-# Compilar el proyecto API
-RUN find . -name "API_Estudiantes_Test.csproj" -exec dotnet publish {} -c Release -o /app/out \;
+# Publicar el proyecto principal 
+RUN dotnet publish "API_Estudiantes_Test/API_Estudiantes_Test.csproj" -c Release -o /app/out
 
 # Etapa final
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
@@ -27,8 +26,7 @@ COPY --from=build /app/out .
 EXPOSE 80
 EXPOSE 443
 
-# Mostrar los DLLs disponibles
+# Listar contenido para verificar
 RUN ls -la
 
-# Punto de entrada específico
 ENTRYPOINT ["dotnet", "API_Estudiantes_Test.dll"]
