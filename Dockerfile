@@ -1,32 +1,38 @@
-# Etapa de construcción
+# Etapa de construcción con diagnóstico detallado
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /app
 
-# Copiar el proyecto actual
+# Copiar todo el contenido
 COPY . ./
 
-# Crear una carpeta para las referencias externas e identificar la ruta del DLL
-RUN mkdir -p /app/referencias/
-# [IMPORTANTE] Asegúrate de que el archivo .dll esté en tu repositorio
-# o cópialo a esta ubicación antes del build
+# Diagnóstico: Listar estructura completa
+RUN find . -type f | grep -E '\.(dll|csproj|cs)$' | sort
 
-# Mostrar estructura para depuración
-RUN find . -type f -name "*.dll" | sort
+# Verificar específicamente si existe el DLL de ControlEscolarCore
+RUN find . -name "ControlEscolarCore.dll" -o -name "ControlEscolarCore*.dll" | sort
 
-# Restaurar dependencias explícitamente
-RUN dotnet restore "API_Estudiantes_Test/API_Estudiantes_Test.csproj" --source "https://api.nuget.org/v3/index.json"
+# Verificar el contenido del archivo csproj
+RUN cat API_Estudiantes_Test/API_Estudiantes_Test.csproj
 
-# Publicar el proyecto principal 
-RUN dotnet publish "API_Estudiantes_Test/API_Estudiantes_Test.csproj" -c Release -o /app/out
+# Copiar manualmente la biblioteca a donde .NET pueda encontrarla
+RUN mkdir -p /root/.nuget/packages/controlescolarcore/1.0.0/lib/net8.0/
+RUN find . -name "ControlEscolarCore.dll" -exec cp {} /root/.nuget/packages/controlescolarcore/1.0.0/lib/net8.0/ \;
+
+# Restaurar paquetes
+RUN dotnet restore
+
+# Compilar con verbosidad detallada para ver qué está fallando
+RUN dotnet publish API_Estudiantes_Test/API_Estudiantes_Test.csproj -c Release -o /app/out -v d
 
 # Etapa final
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 COPY --from=build /app/out .
+
+# Asegurarnos de copiar también el DLL de ControlEscolarCore
+COPY --from=build /root/.nuget/packages/controlescolarcore/1.0.0/lib/net8.0/ControlEscolarCore.dll .
+
 EXPOSE 80
 EXPOSE 443
-
-# Listar contenido para verificar
-RUN ls -la
 
 ENTRYPOINT ["dotnet", "API_Estudiantes_Test.dll"]
