@@ -2,19 +2,20 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /app
 
-# Copiar toda la solución primero
+# Copiar toda la solución
 COPY . ./
 
 # Listar los directorios para depuración
 RUN ls -la
 
-# Intentar construir solo el proyecto API
-RUN find . -name "API_Estudiantes_Test.csproj" -exec dotnet publish {} -c Release -o /app/out \;
+# Restaurar todas las dependencias de la solución
+RUN dotnet restore
 
-# Si lo anterior falla, intentar buscar la API por nombre
-RUN if [ ! -d /app/out ]; then \
-    find . -name "*.csproj" | grep -i api | xargs -I {} dotnet publish {} -c Release -o /app/out; \
-    fi
+# Compilar la solución completa para asegurar que todas las dependencias estén resueltas
+RUN find . -name "*.sln" -exec dotnet build {} -c Release \;
+
+# Publicar el proyecto API específico
+RUN find . -name "API_Estudiantes_Test.csproj" -exec dotnet publish {} -c Release -o /app/out \;
 
 # Etapa final
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
@@ -23,8 +24,8 @@ COPY --from=build /app/out .
 EXPOSE 80
 EXPOSE 443
 
-# Buscar el nombre exacto del DLL de la API
-RUN find . -name "*.dll" | grep -i api
+# Mostrar los DLLs disponibles para verificación
+RUN ls -la *.dll
 
-# Entrypoint dinámico que busca el archivo API.dll
-ENTRYPOINT ["sh", "-c", "dotnet $(find . -name \"*Test.dll\" | head -1)"]
+# Usar el nombre exacto del DLL que deseas ejecutar
+ENTRYPOINT ["dotnet", "API_Estudiantes_Test.dll"]
